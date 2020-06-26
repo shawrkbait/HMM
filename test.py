@@ -38,7 +38,7 @@ def test_rand():
     row_sums = wtmp.sum(axis=1)
     w = np.array(wtmp / row_sums[:, np.newaxis], dtype=np.double)
 
-    means = np.array((0.6 * np.random.random_sample((n, m, d)) - 0.3), dtype=np.double)
+    means = np.array((60 * np.random.random_sample((n, m, d)) - 30), dtype=np.double)
     covars = np.zeros( (n,m,d,d) )
 
     for i in range(n):
@@ -48,7 +48,7 @@ def test_rand():
     pitmp = np.random.random_sample((n))
     pi = np.array(pitmp / sum(pitmp), dtype=np.double)
 
-    gmmhmm = EMAGMHMM(n,m,d,a,means,covars,w,pi,init_type='user',verbose=True, min_std=1e-4)
+    gmmhmm = EMAGMHMM(n,m,d,a,means,covars,w,pi,init_type='user',verbose=True, min_std=1e-6)
 
     obs = testvals(0, 400)
 
@@ -65,12 +65,12 @@ def test_rand():
           success += 1
         total += 1
         print("%d/%d pred=%s actual=%s" % (success,total, nextev, np.array(seq[-1][0])))
-      gmmhmm.train(seq,100)
+      gmmhmm.train(seq,50)
       print(gmmhmm.means)
       print(gmmhmm.covars)
       viterbi = gmmhmm.decode(obs[i-40:i])
       print(viterbi)
       nextev = np.array(getEV(gmmhmm.means, gmmhmm.w))
-      gmmhmm = EMAGMHMM(n,m,d,gmmhmm.A,gmmhmm.means,gmmhmm.covars,gmmhmm.w,pi,init_type='user',verbose=False, min_std=1e-4)
+      gmmhmm = EMAGMHMM(n,m,d,gmmhmm.A,gmmhmm.means,gmmhmm.covars,gmmhmm.w,pi,init_type='user',verbose=True, min_std=1e-4)
 
 test_rand()
