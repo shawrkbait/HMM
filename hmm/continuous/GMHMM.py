@@ -28,5 +28,8 @@ class GMHMM(_ContinuousHMM):
         covar_det = numpy.linalg.det(covar);
         
         c = (1 / ( (2.0*numpy.pi)**(float(self.d/2.0)) * (covar_det)**(0.5)))
-        pdfval = c * numpy.exp(-0.5 * numpy.dot( numpy.dot((x-mean),covar.I), (x-mean)) )
-        return pdfval
+        estuff = -0.5 * numpy.dot( numpy.dot((x-mean),covar.I), (x-mean))
+        # "exp" can only handle about -740
+        # Avoid underflow
+        estuff = numpy.maximum(-700, estuff)
+        return c * numpy.exp(estuff)
