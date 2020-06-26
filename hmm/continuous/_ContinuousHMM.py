@@ -101,7 +101,8 @@ class _ContinuousHMM(_BaseHMM):
         '''
         bjt = 0
         for m in range(self.m):
-            self.Bmix_map[j][m][t] = self._pdf(Ot, self.means[j][m], self.covars[j][m])
+            # Add a small number so that the mixture is never zero
+            self.Bmix_map[j][m][t] = self._pdf(Ot, self.means[j][m], self.covars[j][m]) + 1
             bjt += (self.w[j][m]*self.Bmix_map[j][m][t])
         return bjt
         
