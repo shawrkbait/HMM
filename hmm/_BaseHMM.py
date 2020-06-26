@@ -145,7 +145,7 @@ class _BaseHMM(object):
         # path backtracing
 #        path = numpy.zeros((len(observations)),dtype=self.precision) ### 2012-11-17 - BUG FIX: wrong reinitialization destroyed the last state in the path
         for i in range(1, len(observations)):
-            path[len(observations)-i-1] = psi[len(observations)-i][ path[len(observations)-i] ]
+            path[len(observations)-i-1] = psi[len(observations)-i][ int(path[len(observations)-i]) ]
         return path
      
     def _calcxi(self,observations,alpha=None,beta=None):
@@ -179,6 +179,7 @@ class _BaseHMM(object):
                     numer *= self.A[i][j]
                     numer *= self.B_map[j][t+1]
                     numer *= beta[t+1][j]
+                    numer = max(numer,1e-50)
                     xi[t][i][j] = numer/denom
                     
         return xi
