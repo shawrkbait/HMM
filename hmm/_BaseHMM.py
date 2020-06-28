@@ -9,6 +9,7 @@ This code is based on:
 '''
 
 import numpy
+import numpy as np
 import sys
 
 class _BaseHMM(object):
@@ -62,14 +63,15 @@ class _BaseHMM(object):
         
         # init stage - alpha_1(x) = pi(x)b_x(O1)
         for x in range(self.n):
-            alpha[0][x] = self.pi[x]*self.B_map[x][0]
+            alpha[0][x] = self.elnproduct(self.eln(self.pi[x]), self.eln(self.B_map[x][0]))
         
         # induction
         for t in range(1,len(observations)):
             for j in range(self.n):
+                logalpha = self.LOGZERO
                 for i in range(self.n):
-                    alpha[t][j] += alpha[t-1][i]*self.A[i][j]
-                alpha[t][j] *= self.B_map[j][t]
+                    logalpha = self.elnsum(logalpha, self.elnproduct(alpha[t-1][i], self.eln(self.A[i][j])))
+                alpha[t][j] = self.elnproduct(logalpha, self.eln(self.B_map[j][t]))
                 
         return alpha
 
@@ -81,17 +83,16 @@ class _BaseHMM(object):
         beta[t][i] = the probability of being in state 'i' and then observing the
         symbols from t+1 to the end (T).
         '''        
-        beta = numpy.zeros((len(observations),self.n),dtype=self.precision)
-        
         # init stage
-        for s in range(self.n):
-            beta[len(observations)-1][s] = 1.
+        beta = numpy.zeros((len(observations),self.n),dtype=self.precision)
         
         # induction
         for t in range(len(observations)-2,-1,-1):
             for i in range(self.n):
+                logbeta = self.LOGZERO
                 for j in range(self.n):
-                    beta[t][i] += self.A[i][j]*self.B_map[j][t+1]*beta[t+1][j]
+                    logbeta = self.elnsum(logbeta, self.elnproduct(self.eln(self.A[i][j]), self.elnproduct(self.eln(self.B_map[j][t+1]), self.eln(beta[t+1][j]))))
+                beta[t][i] = logbeta
                     
         return beta
     
@@ -138,7 +139,7 @@ class _BaseHMM(object):
         
         # termination: find the maximum probability for the entire sequence (=highest prob path)
         p_max = 0 # max value in time T (max)
-        path = numpy.zeros((len(observations)),dtype=self.precision)
+        path = numpy.zeros((len(observations)),dtype=int)
         for i in range(self.n):
             if (p_max < delta[len(observations)-1][i]):
                 p_max = delta[len(observations)-1][i]
@@ -165,24 +166,14 @@ class _BaseHMM(object):
         xi = numpy.zeros((len(observations),self.n,self.n),dtype=self.precision)
         
         for t in range(len(observations)-1):
-            denom = 0.0
-            for i in range(self.n):
-                for j in range(self.n):
-                    thing = 1.0
-                    thing *= alpha[t][i]
-                    thing *= self.A[i][j]
-                    thing *= self.B_map[j][t+1]
-                    thing *= beta[t+1][j]
-                    denom += thing
-            for i in range(self.n):
-                for j in range(self.n):
-                    numer = 1.0
-                    numer *= alpha[t][i]
-                    numer *= self.A[i][j]
-                    numer *= self.B_map[j][t+1]
-                    numer *= beta[t+1][j]
-                    xi[t][i][j] = numer/denom
-                    
+          normalizer = self.LOGZERO
+          for i in range(self.n):
+            for j in range(self.n):
+              xi[i][j] = self.elnproduct(alpha[t][i], self.elnproduct(self.eln(self.A[i][j]), self.elnproduct(self.eln(self.B_map[j][t+1]), self.beta[t+1][j])))
+              normalizer = self.elnsum(normalizer, xi[i][j])
+          for i in range(self.n):
+            for j in range(self.n):
+              xi[i][j] = self.elnproduct(xi[i][j], -normalizer)
         return xi
 
     def _calcgamma(self,xi,seqlen):
@@ -195,9 +186,13 @@ class _BaseHMM(object):
         gamma = numpy.zeros((seqlen,self.n),dtype=self.precision)
         
         for t in range(seqlen):
+            normalizer = self.LOGZERO
             for i in range(self.n):
-                gamma[t][i] = sum(xi[t][i])
-        
+                gamma[t][i] = self.elnproduct(alpha[t][i], beta[t][i])
+                normalizer = self.elnsum(normalizer, gamma[t][i])
+            for i in range(self.n):
+                gamma[t][i] = self.elnproduct(gamma[t][i], -normalizer)        
+
         return gamma
     
     def train(self, observations, iterations=1,epsilon=0.0001,thres=-0.001):
@@ -266,12 +261,14 @@ class _BaseHMM(object):
         A_new = numpy.zeros((self.n,self.n),dtype=self.precision)
         for i in range(self.n):
             for j in range(self.n):
-                numer = 0.0
-                denom = 0.0
+                numer = self.LOGZERO
+                denom = self.LOGZERO
                 for t in range(len(observations)-1):
-                    numer += (self._eta(t,len(observations)-1)*xi[t][i][j])
-                    denom += (self._eta(t,len(observations)-1)*gamma[t][i])
-                A_new[i][j] = numer/denom
+                    # TODO: Does not work with custom _eta
+                    numer = self.elnsum(numer, xi[t][i][j])
+                    # denom += (self._eta(t,len(observations)-1)*gamma[t][i])
+                    denom = self.elnsum(denom, gamma[t][i])
+                A_new[i][j] = self.eexp(self.elnproduct(numer, -denom))
         return A_new
     
     def _calcstats(self,observations):
@@ -350,7 +347,7 @@ class _BaseHMM(object):
     def eln(self, x):
       if x == 0:
         return LOGZERO
-      elsif x > 0:
+      elif x > 0:
         return np.log(x)
       else:
         raise Exception("Negative Input")

@@ -95,12 +95,12 @@ class DiscreteHMM(_BaseHMM):
         
         for j in range(self.n):
             for k in range(self.m):
-                numer = 0.0
-                denom = 0.0
+                numer = self.LOGZERO
+                denom = self.LOGZERO
                 for t in range(len(observations)):
                     if observations[t] == k:
-                        numer += gamma[t][j]
-                    denom += gamma[t][j]
-                B_new[j][k] = numer/denom
+                        numer = self.elnsum(numer, gamma[t][j])
+                    denom = self.elnsum(denom, gamma[t][j])
+                B_new[j][k] = self.eexp(self.elnproduct(numer, -denom))
         
         return B_new
