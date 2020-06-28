@@ -9,6 +9,7 @@ This code is based on:
 '''
 
 import numpy
+import sys
 
 class _BaseHMM(object):
     '''
@@ -18,7 +19,8 @@ class _BaseHMM(object):
     def __init__(self,n,m,precision=numpy.double,verbose=False):
         self.n = n
         self.m = m
-        
+       
+        self.LOGZERO = sys.float_info.min 
         self.precision = precision
         self.verbose = verbose
         self._eta = self._eta1
@@ -339,3 +341,39 @@ class _BaseHMM(object):
         '''
         raise NotImplementedError("a mapping function for B(observable probabilities) must be implemented")
         
+    def eexp(self, x):
+      if x == LOGZERO:
+        return 0
+      else:
+        return np.exp(x)
+
+    def eln(self, x):
+      if x == 0:
+        return LOGZERO
+      elsif x > 0:
+        return np.log(x)
+      else:
+        raise Exception("Negative Input")
+
+    def elnsum(self, x, y):
+      elnx = self.eln(x)
+      elny = self.eln(y)
+      if elnx == LOGZERO or elny == LOGZERO:
+        if elnx == LOGZERO:
+          return elny
+        else:
+          return elnx
+      else:
+        if elnx > elny:
+          return elnx + self.eln(1 + np.exp(elny - elnx))
+        else:
+          return elny + self.eln(1 + np.exp(elnx - elny))
+      
+    def elnproduct(self, x, y):
+      elnx = self.eln(x)
+      elny = self.eln(y)
+
+      if elnx == LOGZERO or elny == LOGZERO:
+        return LOGZERO
+      else:
+        return elnx + elny
