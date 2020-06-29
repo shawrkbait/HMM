@@ -6,6 +6,7 @@ Created on Nov 12, 2012
 
 from hmm._BaseHMM import _BaseHMM
 import numpy
+from scipy.stats import multivariate_normal as mvn
 
 class _ContinuousHMM(_BaseHMM):
     '''
@@ -101,8 +102,8 @@ class _ContinuousHMM(_BaseHMM):
         '''
         bjt = 0
         for m in range(self.m):
-            self.Bmix_map[j][m][t] = self._pdf(Ot, self.means[j][m], self.covars[j][m])
-            bjt += (self.w[j][m]*self.Bmix_map[j][m][t])
+            self.Bmix_map[j][m][t] = mvn.logpdf(Ot, self.means[j][m], self.covars[j][m])
+            bjt = self.elnsum(bjt, self.elnproduct(self.eln(self.w[j][m]), self.eln(self.Bmix_map[j][m][t])))
         return bjt
         
     def _calcgammamix(self,alpha,beta,observations):
@@ -117,17 +118,17 @@ class _ContinuousHMM(_BaseHMM):
         for t in range(len(observations)):
             for j in range(self.n):
                 for m in range(self.m):
-                    alphabeta = 0.0
+                    alphabeta = self.LOGZERO
                     for jj in range(self.n):
-                        alphabeta += alpha[t][jj]*beta[t][jj]
-                    comp1 = (alpha[t][j]*beta[t][j]) / alphabeta
+                        alphabeta = self.elnsum(alphabeta, self.elnproduct(alpha[t][jj],beta[t][jj]))
+                    comp1 = self.elnproduct(self.elnproduct(alpha[t][j],beta[t][j]), -alphabeta)
                     
-                    bjk_sum = 0.0
+                    bjk_sum = self.LOGZERO
                     for k in range(self.m):
-                        bjk_sum += (self.w[j][k]*self.Bmix_map[j][k][t])
-                    comp2 = (self.w[j][m]*self.Bmix_map[j][m][t])/bjk_sum
+                        bjk_sum = self.elnsum(bjk_sum, self.elnproduct(self.eln(self.w[j][k]), self.eln(self.Bmix_map[j][k][t])))
+                    comp2 = self.elnproduct(self.elnproduct(self.eln(self.w[j][m]),self.eln(self.Bmix_map[j][m][t])), -bjk_sum)
                     
-                    gamma_mix[t][j][m] = comp1*comp2
+                    gamma_mix[t][j][m] = self.elnproduct(comp1,comp2)
         
         return gamma_mix
     
