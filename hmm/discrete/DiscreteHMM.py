@@ -81,6 +81,7 @@ class DiscreteHMM(_BaseHMM):
         # re-estimate the discrete probability of the observable symbols
         B_new = self._reestimateB(observations,stats['gamma'])
         
+        print(B_new)
         new_model['B'] = B_new
         
         return new_model
