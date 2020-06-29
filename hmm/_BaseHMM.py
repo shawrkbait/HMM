@@ -372,8 +372,8 @@ class _BaseHMM(object):
       else:
         return x + y
 
-    def logsumexp(self, xs):
-      s=0
-      for x in xs:
-        s += self.eexp(x)
-      return self.eln(s)
+    def logsumexp(self, ns):
+      max = np.max(ns)
+      ds = ns - max
+      sumOfExp = np.exp(ds).sum()
+      return max + np.log(sumOfExp)

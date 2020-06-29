@@ -182,29 +182,30 @@ class _ContinuousHMM(_BaseHMM):
         
         for j in range(self.n):
             for m in range(self.m):
-                numer = 0.0
-                denom = 0.0                
+                numer = self.LOGZERO
+                denom = self.LOGZERO       
                 for t in range(len(observations)):
                     for k in range(self.m):
-                        denom += (self._eta(t,len(observations)-1)*gamma_mix[t][j][k])
-                    numer += (self._eta(t,len(observations)-1)*gamma_mix[t][j][m])
-                w_new[j][m] = numer/denom
-            w_new[j] = self._normalize(w_new[j])
+                        denom = self.elnsum(denom, gamma_mix[t][j][k])
+                    numer = self.elnsum(numer, gamma_mix[t][j][m])
+                w_new[j][m] = self.eexp(self.elnproduct(numer, -denom))
+            #w_new[j] = self._normalize(w_new[j])
+            # TODO: Normalize?
                 
         for j in range(self.n):
             for m in range(self.m):
-                numer = numpy.zeros( (self.d), dtype=self.precision)
-                denom = numpy.zeros( (self.d), dtype=self.precision)
+                numer = self.LOGZERO * numpy.ones( (self.d), dtype=self.precision)
+                denom = self.LOGZERO * numpy.ones( (self.d), dtype=self.precision)
                 for t in range(len(observations)):
-                    numer += (self._eta(t,len(observations)-1)*gamma_mix[t][j][m]*observations[t])
-                    denom += (self._eta(t,len(observations)-1)*gamma_mix[t][j][m])
-                means_new[j][m] = numer/denom
+                    numer = self.elnsum(numer, self.elnproduct(gamma_mix[t][j][m], observations[t]))
+                    denom = self.elnsum(denom, gamma_mix[t][j][m])
+                means_new[j][m] = self.eexp(self.elnproduct(numer, -denom))
                 
-        cov_prior = [[ numpy.matrix(self.min_std*numpy.eye((self.d), dtype=self.precision)) for j in range(self.m)] for i in range(self.n)]
+#        cov_prior = [[ numpy.matrix(self.min_std*numpy.eye((self.d), dtype=self.precision)) for j in range(self.m)] for i in range(self.n)]
         for j in range(self.n):
             for m in range(self.m):
-                numer = numpy.matrix(numpy.zeros( (self.d,self.d), dtype=self.precision))
-                denom = numpy.matrix(numpy.zeros( (self.d,self.d), dtype=self.precision))
+                numer = numpy.matrix(numpy.LOGZERO * numpy.ones( (self.d,self.d), dtype=self.precision))
+                denom = numpy.matrix(numpy.LOGZERO * numpy.ones( (self.d,self.d), dtype=self.precision))
                 for t in range(len(observations)):
                     vector_as_mat = numpy.matrix( (observations[t]-self.means[j][m]), dtype=self.precision )
                     numer += (self._eta(t,len(observations)-1)*gamma_mix[t][j][m]*numpy.dot( vector_as_mat.T, vector_as_mat))
