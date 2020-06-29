@@ -48,7 +48,7 @@ class _BaseHMM(object):
             self._mapB(observations)
         
         alpha = self._calcalpha(observations)
-        return sum(alpha[-1])
+        return self.logsumexp(alpha[-1])
     
     def _calcalpha(self,observations):
         '''
@@ -120,7 +120,7 @@ class _BaseHMM(object):
         # similar to the forward-backward algorithm, we need to make sure that we're using fresh data for the given observations.
         self._mapB(observations)
         
-        delta = numpy.zeros((len(observations),self.n),dtype=self.precision)
+        delta = self.LOGZERO * numpy.ones((len(observations),self.n),dtype=self.precision)
         psi = numpy.zeros((len(observations),self.n),dtype=self.precision)
         
         # init
@@ -132,13 +132,14 @@ class _BaseHMM(object):
         for t in range(1,len(observations)):
             for j in range(self.n):
                 for i in range(self.n):
-                    if (delta[t][j] < delta[t-1][i]*self.A[i][j]):
-                        delta[t][j] = self.elnproduct(delta[t-1][i], self.eln(self.A[i][j]))
+                    tmp = self.elnproduct(delta[t-1][i], self.eln(self.A[i][j]))
+                    if (delta[t][j] < tmp):
+                        delta[t][j] = tmp
                         psi[t][j] = i
                 delta[t][j] = self.elnproduct(delta[t][j], self.eln(self.B_map[j][t]))
-        
+       
         # termination: find the maximum probability for the entire sequence (=highest prob path)
-        p_max = 0 # max value in time T (max)
+        p_max = self.LOGZERO # max value in time T (max)
         path = numpy.zeros((len(observations)),dtype=int)
         for i in range(self.n):
             if (p_max < delta[len(observations)-1][i]):
@@ -148,7 +149,7 @@ class _BaseHMM(object):
         # path backtracing
 #        path = numpy.zeros((len(observations)),dtype=self.precision) ### 2012-11-17 - BUG FIX: wrong reinitialization destroyed the last state in the path
         for i in range(1, len(observations)):
-            path[len(observations)-i-1] = psi[len(observations)-i][ path[len(observations)-i] ]
+            path[len(observations)-i-1] = psi[len(observations)-i][ int(path[len(observations)-i]) ]
         return path
      
     def _calcxi(self,observations,alpha=None,beta=None):
@@ -285,8 +286,6 @@ class _BaseHMM(object):
         
         stats['alpha'] = self._calcalpha(observations)
         stats['beta'] = self._calcbeta(observations)
-        #print(stats['alpha'])
-        #print(stats['beta'])
         stats['xi'] = self._calcxi(observations,stats['alpha'],stats['beta'])
         stats['gamma'] = self._calcgamma(stats['xi'],stats['alpha'],stats['beta'],len(observations))
         
@@ -372,3 +371,9 @@ class _BaseHMM(object):
         return self.LOGZERO
       else:
         return x + y
+
+    def logsumexp(self, xs):
+      s=0
+      for x in xs:
+        s += self.eexp(x)
+      return self.eln(s)
