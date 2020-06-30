@@ -11,8 +11,8 @@ def testvals(start, end):
   b = []
   for i in range(start,end):
     x = 0.2 * (np.random.rand()/100 - 0.005) + 0.7 * oldval + 0.1 * 0.00001
-    a.append(10 *x)
-    b.append(10 *(0.9 * x + 0.1 * (np.random.rand()/100 - .005)))
+    a.append(x)
+    b.append((0.9 * x + 0.1 * (np.random.rand()/100 - .005)))
     oldval = x
   return np.column_stack([a,b])
 
@@ -38,7 +38,7 @@ def test_rand():
     row_sums = wtmp.sum(axis=1)
     w = np.array(wtmp / row_sums[:, np.newaxis], dtype=np.double)
 
-    means = np.array((6 * np.random.random_sample((n, m, d)) - 3), dtype=np.double)
+    means = np.array((0.6 * np.random.random_sample((n, m, d)) - 0.3), dtype=np.double)
     covars = np.zeros( (n,m,d,d) )
 
     for i in range(n):
@@ -65,7 +65,7 @@ def test_rand():
           success += 1
         total += 1
         print("%d/%d pred=%s actual=%s" % (success,total, nextev, np.array(seq[-1][0])))
-      gmmhmm.train(seq,50, epsilon=1e-20)
+      gmmhmm.train(seq,50)
       print(gmmhmm.means)
       print(gmmhmm.covars)
       viterbi = gmmhmm.decode(obs[i-40:i])

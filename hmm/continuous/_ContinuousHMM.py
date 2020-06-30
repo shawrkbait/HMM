@@ -102,8 +102,8 @@ class _ContinuousHMM(_BaseHMM):
         '''
         bjt = 0
         for m in range(self.m):
-            self.Bmix_map[j][m][t] = mvn.logpdf(Ot, self.means[j][m], self.covars[j][m])
-            bjt = self.elnsum(bjt, self.elnproduct(self.eln(self.w[j][m]), self.eln(self.Bmix_map[j][m][t])))
+            self.Bmix_map[j][m][t] = self.eln(self._pdf(Ot, self.means[j][m], self.covars[j][m]))
+            bjt = self.elnsum(bjt, self.elnproduct(self.eln(self.w[j][m]), self.Bmix_map[j][m][t]))
         return bjt
         
     def _calcgammamix(self,alpha,beta,observations):
@@ -125,8 +125,8 @@ class _ContinuousHMM(_BaseHMM):
                     
                     bjk_sum = self.LOGZERO
                     for k in range(self.m):
-                        bjk_sum = self.elnsum(bjk_sum, self.elnproduct(self.eln(self.w[j][k]), self.eln(self.Bmix_map[j][k][t])))
-                    comp2 = self.elnproduct(self.elnproduct(self.eln(self.w[j][m]),self.eln(self.Bmix_map[j][m][t])), -bjk_sum)
+                        bjk_sum = self.elnsum(bjk_sum, self.elnproduct(self.eln(self.w[j][k]), self.Bmix_map[j][k][t]))
+                    comp2 = self.elnproduct(self.elnproduct(self.eln(self.w[j][m]),self.Bmix_map[j][m][t]), -bjk_sum)
                     
                     gamma_mix[t][j][m] = self.elnproduct(comp1,comp2)
         
@@ -183,33 +183,31 @@ class _ContinuousHMM(_BaseHMM):
         for j in range(self.n):
             for m in range(self.m):
                 numer = self.LOGZERO
-                denom = self.LOGZERO       
+                denom = self.LOGZERO
                 for t in range(len(observations)):
                     for k in range(self.m):
                         denom = self.elnsum(denom, gamma_mix[t][j][k])
                     numer = self.elnsum(numer, gamma_mix[t][j][m])
                 w_new[j][m] = self.eexp(self.elnproduct(numer, -denom))
-            #w_new[j] = self._normalize(w_new[j])
-            # TODO: Normalize?
                 
         for j in range(self.n):
             for m in range(self.m):
-                numer = self.LOGZERO * numpy.ones( (self.d), dtype=self.precision)
-                denom = self.LOGZERO * numpy.ones( (self.d), dtype=self.precision)
+                numer = numpy.zeros( (self.d), dtype=self.precision)
+                denom = numpy.zeros( (self.d), dtype=self.precision)
                 for t in range(len(observations)):
-                    numer = self.elnsum(numer, self.elnproduct(gamma_mix[t][j][m], observations[t]))
-                    denom = self.elnsum(denom, gamma_mix[t][j][m])
-                means_new[j][m] = self.eexp(self.elnproduct(numer, -denom))
-                
-#        cov_prior = [[ numpy.matrix(self.min_std*numpy.eye((self.d), dtype=self.precision)) for j in range(self.m)] for i in range(self.n)]
+                    numer += (self._eta(t,len(observations)-1)*gamma_mix[t][j][m]*observations[t])
+                    denom += (self._eta(t,len(observations)-1)*gamma_mix[t][j][m])
+                means_new[j][m] = numer/denom
+
+        cov_prior = [[ numpy.matrix(self.min_std*numpy.eye((self.d), dtype=self.precision)) for j in range(self.m)] for i in range(self.n)]
         for j in range(self.n):
             for m in range(self.m):
-                numer = numpy.matrix(numpy.LOGZERO * numpy.ones( (self.d,self.d), dtype=self.precision))
-                denom = numpy.matrix(numpy.LOGZERO * numpy.ones( (self.d,self.d), dtype=self.precision))
+                numer = numpy.matrix(numpy.zeros( (self.d,self.d), dtype=self.precision))
+                denom = numpy.matrix(numpy.zeros( (self.d,self.d), dtype=self.precision))
                 for t in range(len(observations)):
                     vector_as_mat = numpy.matrix( (observations[t]-self.means[j][m]), dtype=self.precision )
-                    numer += (self._eta(t,len(observations)-1)*gamma_mix[t][j][m]*numpy.dot( vector_as_mat.T, vector_as_mat))
-                    denom += (self._eta(t,len(observations)-1)*gamma_mix[t][j][m])
+                    numer += (self._eta(t,len(observations)-1)*self.eexp(gamma_mix[t][j][m])*numpy.dot( vector_as_mat.T, vector_as_mat))
+                    denom += (self._eta(t,len(observations)-1)*self.eexp(gamma_mix[t][j][m]))
                 covars_new[j][m] = numer/denom
                 covars_new[j][m] = covars_new[j][m] + cov_prior[j][m]               
         

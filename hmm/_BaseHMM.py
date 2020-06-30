@@ -365,9 +365,9 @@ class _BaseHMM(object):
           return x
       else:
         if x > y:
-          return x + self.eln(1 + np.exp(y - x))
+          return x + self.eln(1 + self.eexp(y - x))
         else:
-          return y + self.eln(1 + np.exp(x - y))
+          return y + self.eln(1 + self.eexp(x - y))
       
     def elnproduct(self, x, y):
       if x == self.LOGZERO or y == self.LOGZERO:
