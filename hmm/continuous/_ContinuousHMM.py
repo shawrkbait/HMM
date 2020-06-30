@@ -6,7 +6,9 @@ Created on Nov 12, 2012
 
 from hmm._BaseHMM import _BaseHMM
 import numpy
+import numpy as np
 from scipy.stats import multivariate_normal as mvn
+from numpy import linalg as la
 
 class _ContinuousHMM(_BaseHMM):
     '''
@@ -102,8 +104,9 @@ class _ContinuousHMM(_BaseHMM):
         '''
         bjt = 0
         for m in range(self.m):
-            self.Bmix_map[j][m][t] = self.eln(self._pdf(Ot, self.means[j][m], self.covars[j][m]))
-            bjt = self.elnsum(bjt, self.elnproduct(self.eln(self.w[j][m]), self.Bmix_map[j][m][t]))
+            tmp = self._pdf(Ot, self.means[j][m], self.covars[j][m])
+            self.Bmix_map[j][m][t] = self.eln(tmp)
+            bjt = self.elnsum(bjt, self.elnproduct(self.w[j][m], self.Bmix_map[j][m][t]))
         return bjt
         
     def _calcgammamix(self,alpha,beta,observations):
@@ -125,9 +128,10 @@ class _ContinuousHMM(_BaseHMM):
                     
                     bjk_sum = self.LOGZERO
                     for k in range(self.m):
-                        bjk_sum = self.elnsum(bjk_sum, self.elnproduct(self.eln(self.w[j][k]), self.Bmix_map[j][k][t]))
-                    comp2 = self.elnproduct(self.elnproduct(self.eln(self.w[j][m]),self.Bmix_map[j][m][t]), -bjk_sum)
-                    
+                        tmp = self.elnproduct(self.w[j][k], self.Bmix_map[j][k][t])
+                        bjk_sum = self.elnsum(bjk_sum, tmp)
+                    comp2 = self.elnproduct(self.elnproduct(self.w[j][m],self.Bmix_map[j][m][t]), -bjk_sum)
+
                     gamma_mix[t][j][m] = self.elnproduct(comp1,comp2)
         
         return gamma_mix
@@ -179,7 +183,7 @@ class _ContinuousHMM(_BaseHMM):
         w_new = numpy.zeros( (self.n,self.m), dtype=self.precision)
         means_new = numpy.zeros( (self.n,self.m,self.d), dtype=self.precision)
         covars_new = [[ numpy.matrix(numpy.zeros((self.d,self.d), dtype=self.precision)) for j in range(self.m)] for i in range(self.n)]
-        
+       
         for j in range(self.n):
             for m in range(self.m):
                 numer = self.LOGZERO
@@ -188,15 +192,15 @@ class _ContinuousHMM(_BaseHMM):
                     for k in range(self.m):
                         denom = self.elnsum(denom, gamma_mix[t][j][k])
                     numer = self.elnsum(numer, gamma_mix[t][j][m])
-                w_new[j][m] = self.eexp(self.elnproduct(numer, -denom))
-                
+                w_new[j][m] = self.elnproduct(numer, -denom)
+
         for j in range(self.n):
             for m in range(self.m):
                 numer = numpy.zeros( (self.d), dtype=self.precision)
                 denom = numpy.zeros( (self.d), dtype=self.precision)
                 for t in range(len(observations)):
-                    numer += (self._eta(t,len(observations)-1)*gamma_mix[t][j][m]*observations[t])
-                    denom += (self._eta(t,len(observations)-1)*gamma_mix[t][j][m])
+                    numer += (self._eta(t,len(observations)-1)*self.eexp(gamma_mix[t][j][m])*observations[t])
+                    denom += (self._eta(t,len(observations)-1)*self.eexp(gamma_mix[t][j][m]))
                 means_new[j][m] = numer/denom
 
         cov_prior = [[ numpy.matrix(self.min_std*numpy.eye((self.d), dtype=self.precision)) for j in range(self.m)] for i in range(self.n)]
@@ -204,15 +208,68 @@ class _ContinuousHMM(_BaseHMM):
             for m in range(self.m):
                 numer = numpy.matrix(numpy.zeros( (self.d,self.d), dtype=self.precision))
                 denom = numpy.matrix(numpy.zeros( (self.d,self.d), dtype=self.precision))
+                
                 for t in range(len(observations)):
                     vector_as_mat = numpy.matrix( (observations[t]-self.means[j][m]), dtype=self.precision )
                     numer += (self._eta(t,len(observations)-1)*self.eexp(gamma_mix[t][j][m])*numpy.dot( vector_as_mat.T, vector_as_mat))
                     denom += (self._eta(t,len(observations)-1)*self.eexp(gamma_mix[t][j][m]))
                 covars_new[j][m] = numer/denom
-                covars_new[j][m] = covars_new[j][m] + cov_prior[j][m]               
+                covars_new[j][m] = covars_new[j][m] + cov_prior[j][m]
+#                covars_new[j][m] = self.nearestPD(covars_new[j][m])
         
         return w_new, means_new, covars_new
     
+    def nearestPD(self, A):
+        """Find the nearest positive-definite matrix to input
+    
+        A Python/Numpy port of John D'Errico's `nearestSPD` MATLAB code [1], which
+        credits [2].
+    
+        [1] https://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd
+    
+        [2] N.J. Higham, "Computing a nearest symmetric positive semidefinite
+        matrix" (1988): https://doi.org/10.1016/0024-3795(88)90223-6
+        """
+    
+        B = (A + A.T) / 2
+        _, s, V = la.svd(B)
+    
+        H = np.dot(V.T, np.dot(np.diag(s), V))
+    
+        A2 = (B + H) / 2
+    
+        A3 = (A2 + A2.T) / 2
+    
+        if self.isPD(A3):
+            return A3
+    
+        spacing = np.spacing(la.norm(A))
+        # The above is different from [1]. It appears that MATLAB's `chol` Cholesky
+        # decomposition will accept matrixes with exactly 0-eigenvalue, whereas
+        # Numpy's will not. So where [1] uses `eps(mineig)` (where `eps` is Matlab
+        # for `np.spacing`), we use the above definition. CAVEAT: our `spacing`
+        # will be much larger than [1]'s `eps(mineig)`, since `mineig` is usually on
+        # the order of 1e-16, and `eps(1e-16)` is on the order of 1e-34, whereas
+        # `spacing` will, for Gaussian random matrixes of small dimension, be on
+        # othe order of 1e-16. In practice, both ways converge, as the unit test
+        # below suggests.
+        I = np.eye(A.shape[0])
+        k = 1
+        while not self.isPD(A3):
+            mineig = np.min(np.real(la.eigvals(A3)))
+            A3 += I * (-mineig * k**2 + spacing)
+            k += 1
+    
+        return A3
+
+    def isPD(self, B):
+        """Returns true when input is positive-definite, via Cholesky"""
+        try:
+            _ = la.cholesky(B)
+            return True
+        except la.LinAlgError:
+            return False
+
     def _normalize(self, arr):
         '''
         Helper method to normalize probabilities, so that

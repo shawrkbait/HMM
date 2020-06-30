@@ -29,4 +29,5 @@ class GMHMM(_ContinuousHMM):
         
         c = (1 / ( (2.0*numpy.pi)**(float(self.d/2.0)) * (covar_det)**(0.5)))
         pdfval = c * self.eexp(-0.5 * numpy.dot( numpy.dot((x-mean),covar.I), (x-mean)) )
-        return pdfval
+        # Hack. We should never return zero
+        return pdfval + 1e-100

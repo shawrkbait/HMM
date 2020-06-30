@@ -344,7 +344,7 @@ class _BaseHMM(object):
       if x == self.LOGZERO:
         return 0
       # Shawn for pdf
-      elif x <= -700:
+      elif x <= -670:
         return 0
       else:
         return np.exp(x)
@@ -376,7 +376,7 @@ class _BaseHMM(object):
         return x + y
 
     def logsumexp(self, ns):
-      max = np.max(ns)
-      ds = ns - max
+      m = np.max(ns)
+      ds = ns - m
       sumOfExp = np.exp(ds).sum()
-      return max + np.log(sumOfExp)
+      return m + np.log(sumOfExp)
