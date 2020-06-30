@@ -59,7 +59,7 @@ class DiscreteHMM(_BaseHMM):
         
         for j in range(self.n):
             for t in range(len(observations)):
-                self.B_map[j][t] = self.B[j][observations[t]]
+                self.B_map[j][t] = self.eln(self.B[j][observations[t]])
                 
     def _updatemodel(self,new_model):
         '''

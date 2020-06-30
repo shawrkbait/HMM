@@ -62,7 +62,7 @@ class _BaseHMM(object):
         
         # init stage - alpha_1(x) = pi(x)b_x(O1)
         for x in range(self.n):
-            alpha[0][x] = self.elnproduct(self.eln(self.pi[x]), self.eln(self.B_map[x][0]))
+            alpha[0][x] = self.elnproduct(self.eln(self.pi[x]), self.B_map[x][0])
         
         # induction
         for t in range(1,len(observations)):
@@ -70,7 +70,7 @@ class _BaseHMM(object):
                 logalpha = self.LOGZERO
                 for i in range(self.n):
                     logalpha = self.elnsum(logalpha, self.elnproduct(alpha[t-1][i], self.eln(self.A[i][j])))
-                alpha[t][j] = self.elnproduct(logalpha, self.eln(self.B_map[j][t]))
+                alpha[t][j] = self.elnproduct(logalpha, self.B_map[j][t])
                 
         return alpha
 
@@ -91,7 +91,7 @@ class _BaseHMM(object):
                 logbeta = self.LOGZERO
                 for j in range(self.n):
                     
-                    logbeta = self.elnsum(logbeta, self.elnproduct(self.eln(self.A[i][j]), self.elnproduct(self.eln(self.B_map[j][t+1]), beta[t+1][j])))
+                    logbeta = self.elnsum(logbeta, self.elnproduct(self.eln(self.A[i][j]), self.elnproduct(self.B_map[j][t+1], beta[t+1][j])))
                 beta[t][i] = logbeta
                     
         return beta
@@ -125,7 +125,7 @@ class _BaseHMM(object):
         
         # init
         for x in range(self.n):
-            delta[0][x] = self.elnproduct(self.eln(self.pi[x]), self.eln(self.B_map[x][0]))
+            delta[0][x] = self.elnproduct(self.eln(self.pi[x]), self.B_map[x][0])
             psi[0][x] = 0
         
         # induction
@@ -136,7 +136,7 @@ class _BaseHMM(object):
                     if (delta[t][j] < tmp):
                         delta[t][j] = tmp
                         psi[t][j] = i
-                delta[t][j] = self.elnproduct(delta[t][j], self.eln(self.B_map[j][t]))
+                delta[t][j] = self.elnproduct(delta[t][j], self.B_map[j][t])
        
         # termination: find the maximum probability for the entire sequence (=highest prob path)
         p_max = self.LOGZERO # max value in time T (max)
@@ -170,7 +170,7 @@ class _BaseHMM(object):
           normalizer = self.LOGZERO
           for i in range(self.n):
             for j in range(self.n):
-              xi[t][i][j] = self.elnproduct(alpha[t][i], self.elnproduct(self.eln(self.A[i][j]), self.elnproduct(self.eln(self.B_map[j][t+1]), beta[t+1][j])))
+              xi[t][i][j] = self.elnproduct(alpha[t][i], self.elnproduct(self.eln(self.A[i][j]), self.elnproduct(self.B_map[j][t+1], beta[t+1][j])))
               normalizer = self.elnsum(normalizer, xi[t][i][j])
           for i in range(self.n):
             for j in range(self.n):
@@ -342,6 +342,9 @@ class _BaseHMM(object):
         
     def eexp(self, x):
       if x == self.LOGZERO:
+        return 0
+      # Shawn for pdf
+      elif x <= -700:
         return 0
       else:
         return np.exp(x)
