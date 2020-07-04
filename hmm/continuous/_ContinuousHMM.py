@@ -84,27 +84,30 @@ class _ContinuousHMM(_BaseHMM):
         '''        
         self.B_map = numpy.zeros( (self.n,len(observations)), dtype=self.precision)
         self.Bmix_map = numpy.zeros( (self.n,self.m,len(observations)), dtype=self.precision)
+
+        scale = numpy.zeros((len(observations), self.m))
+
         for j in range(self.n):
             for t in range(len(observations)):
-                self.B_map[j][t] = self._calcbjt(j, t, observations[t])
-                
-    """
-    b[j][Ot] = sum(1...M)w[j][m]*b[j][m][Ot]
-    Returns b[j][Ot] based on the current model parameters (means, covars, weights) for the mixtures.
-    - j - state
-    - Ot - the current observation
-    Note: there's no need to get the observation itself as it has been used for calculation before.
-    """    
-    def _calcbjt(self,j,t,Ot):
-        '''
-        Helper method to compute Bj(Ot) = sum(1...M){Wjm*Bjm(Ot)}
-        '''
-        bjt = 0
-        for m in range(self.m):
-            self.Bmix_map[j][m][t] = self._pdf(Ot, self.means[j][m], self.covars[j][m])
-            bjt += (self.w[j][m]*self.Bmix_map[j][m][t])
-        return bjt
-        
+                bjt = 0
+                for m in range(self.m):
+                    self.Bmix_map[j][m][t] = self._pdf(observations[t], self.means[j][m], self.covars[j][m])
+                    scale[t][m] += self.Bmix_map[j][m][t]
+
+        for t in range(len(observations)):
+            for m in range(self.m):
+                self.Bmix_map[:,m,t] /= scale[t][m]
+
+        for j in range(self.n):
+            for t in range(len(observations)):
+                bjt = 0
+                for m in range(self.m):
+                    bjt += (self.w[j][m]*self.Bmix_map[j][m][t])
+                self.B_map[j][t] = bjt
+        #print(self.Bmix_map)
+        #print(self.B_map)
+        #print(scale)
+            
     def _calcgammamix(self,alpha,beta,observations):
         '''
         Calculates 'gamma_mix'.

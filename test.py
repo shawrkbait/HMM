@@ -59,7 +59,7 @@ def test_rand():
     pitmp = np.random.random_sample((n))
     pi = np.array(pitmp / sum(pitmp), dtype=np.double)
 
-    gmmhmm = EMAGMHMM(n,m,d,a,means,covars,w,pi,init_type='user',verbose=True, min_std=1e-8)
+    gmmhmm = EMAGMHMM(n,m,d,a,means,covars,w,pi,init_type='user',verbose=True, min_std=1e-4)
 
     obs = testvals(0, 400)
 #    obs = np.column_stack([sdiff, ddiff])
@@ -83,6 +83,6 @@ def test_rand():
       viterbi = gmmhmm.decode(obs[i-40:i])
       print(viterbi)
       nextev = np.array(getEV(gmmhmm.means, gmmhmm.w))
-      gmmhmm = EMAGMHMM(n,m,d,gmmhmm.A,gmmhmm.means,gmmhmm.covars,gmmhmm.w,pi,init_type='user',verbose=True, min_std=1e-8)
+      gmmhmm = EMAGMHMM(n,m,d,gmmhmm.A,gmmhmm.means,gmmhmm.covars,gmmhmm.w,pi,init_type='user',verbose=True, min_std=1e-4)
 
 test_rand()
