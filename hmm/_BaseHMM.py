@@ -45,54 +45,48 @@ class _BaseHMM(object):
         if (cache==False):
             self._mapB(observations)
         
-        alpha = self._calcalpha(observations)
+        alpha, _ = self._calcalpha(observations)
         return numpy.log(sum(alpha[-1]))
-    
+   
     def _calcalpha(self,observations):
         '''
         Calculates 'alpha' the forward variable.
-    
-        The alpha variable is a numpy array indexed by time, then state (TxN).
-        alpha[t][i] = the probability of being in state 'i' after observing the 
-        first t symbols.
-        '''        
-        alpha = numpy.zeros((len(observations),self.n),dtype=self.precision)
-        
-        # init stage - alpha_1(x) = pi(x)b_x(O1)
-        for x in range(self.n):
-            alpha[0][x] = self.pi[x]*self.B_map[x][0]
-        
-        # induction
-        for t in range(1,len(observations)):
-            for j in range(self.n):
-                for i in range(self.n):
-                    alpha[t][j] += alpha[t-1][i]*self.A[i][j]
-                alpha[t][j] *= self.B_map[j][t]
-                
-        return alpha
 
-    def _calcbeta(self,observations):
+        The alpha variable is a numpy array indexed by time, then state (TxN).
+        alpha[t][i] = the probability of being in state 'i' after observing the
+        first t symbols.
+        '''
+        alpha = numpy.zeros((len(observations),self.n),dtype=self.precision)
+        scale = numpy.zeros(len(observations))
+
+        # init stage - alpha_1(x) = pi(x)b_x(O1)
+        alpha[0] = self.pi*self.B_map[:,0]
+        scale[0] = alpha[0].sum()
+        alpha[0] /= scale[0]
+        for t in range(1, len(observations)):
+          alpha_t_prime = self.pi * self.B_map[:,t]
+          scale[t] = alpha_t_prime.sum()
+          alpha[t] = alpha_t_prime / scale[t]
+
+        return alpha, scale
+
+    def _calcbeta(self,observations, scale):
         '''
         Calculates 'beta' the backward variable.
-        
+
         The beta variable is a numpy array indexed by time, then state (TxN).
         beta[t][i] = the probability of being in state 'i' and then observing the
         symbols from t+1 to the end (T).
-        '''        
+        '''
         beta = numpy.zeros((len(observations),self.n),dtype=self.precision)
-        
-        # init stage
-        for s in range(self.n):
-            beta[len(observations)-1][s] = 1.
-        
-        # induction
-        for t in range(len(observations)-2,-1,-1):
-            for i in range(self.n):
-                for j in range(self.n):
-                    beta[t][i] += self.A[i][j]*self.B_map[j][t+1]*beta[t+1][j]
-                    
+        T = len(observations)
+        beta[-1] = 1
+        for t in range(T - 2, -1, -1):
+          beta[t] = self.A.dot(self.B_map[:,t+1] * beta[t+1])
+        for t in range(T-1):
+          beta[t+1] *= scale[t]
         return beta
-    
+
     def decode(self, observations):
         '''
         Find the best state sequence (path), given the model and an observation. i.e: max(P(Q|O,model)).
@@ -136,7 +130,7 @@ class _BaseHMM(object):
         
         # termination: find the maximum probability for the entire sequence (=highest prob path)
         p_max = 0 # max value in time T (max)
-        path = numpy.zeros((len(observations)),dtype=self.precision)
+        path = numpy.zeros((len(observations)),dtype=numpy.int)
         for i in range(self.n):
             if (p_max < delta[len(observations)-1][i]):
                 p_max = delta[len(observations)-1][i]
@@ -157,9 +151,9 @@ class _BaseHMM(object):
         time 't+1' given the entire observation sequence.
         '''        
         if alpha is None:
-            alpha = self._calcalpha(observations)
+            alpha, scale = self._calcalpha(observations)
         if beta is None:
-            beta = self._calcbeta(observations)
+            beta = self._calcbeta(observations, scale)
         xi = numpy.zeros((len(observations),self.n,self.n),dtype=self.precision)
         
         for t in range(len(observations)-1):
@@ -284,8 +278,8 @@ class _BaseHMM(object):
         '''
         stats = {}
         
-        stats['alpha'] = self._calcalpha(observations)
-        stats['beta'] = self._calcbeta(observations)
+        stats['alpha'], scale = self._calcalpha(observations)
+        stats['beta'] = self._calcbeta(observations,scale)
         stats['xi'] = self._calcxi(observations,stats['alpha'],stats['beta'])
         stats['gamma'] = self._calcgamma(stats['xi'],len(observations))
         
