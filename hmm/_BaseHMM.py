@@ -45,8 +45,9 @@ class _BaseHMM(object):
         if (cache==False):
             self._mapB(observations)
         
-        alpha, _ = self._calcalpha(observations)
-        return numpy.log(sum(alpha[-1]))
+        alpha, scale = self._calcalpha(observations)
+        logscale = numpy.log(1 / scale)
+        return -sum(logscale)
    
     def _calcalpha(self,observations):
         '''
