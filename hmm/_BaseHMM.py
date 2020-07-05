@@ -65,10 +65,11 @@ class _BaseHMM(object):
         scale[0] = alpha[0].sum()
         alpha[0] /= scale[0]
         for t in range(1, len(observations)):
-          alpha_t_prime = self.pi * self.B_map[:,t]
+          alpha_t_prime = alpha[t-1].dot(self.A) * self.B_map[:,t]
           scale[t] = alpha_t_prime.sum()
           alpha[t] = alpha_t_prime / scale[t]
 
+        #print(scale)
         return alpha, scale
 
     def _calcbeta(self,observations, scale):
@@ -83,9 +84,7 @@ class _BaseHMM(object):
         T = len(observations)
         beta[-1] = 1
         for t in range(T - 2, -1, -1):
-          beta[t] = self.A.dot(self.B_map[:,t+1] * beta[t+1])
-        for t in range(T-1):
-          beta[t+1] *= scale[t]
+          beta[t] = self.A.dot(self.B_map[:,t+1] * beta[t+1]) / scale[t+1]
         return beta
 
     def decode(self, observations):
@@ -223,7 +222,7 @@ class _BaseHMM(object):
         '''
         Replaces the current model parameters with the new ones.
         '''
-        self.pi = new_model['pi']
+        #self.pi = new_model['pi']
         self.A = new_model['A']
                 
     def trainiter(self,observations):
