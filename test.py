@@ -1,4 +1,5 @@
 from hmm.continuous.EMAGMHMM import EMAGMHMM
+from hmm.continuous.GMHMM import GMHMM
 import pandas as pd
 import numpy as np
 
@@ -59,7 +60,7 @@ def test_rand():
     pitmp = np.random.random_sample((n))
     pi = np.array(pitmp / sum(pitmp), dtype=np.double)
 
-    gmmhmm = EMAGMHMM(n,m,d,a,means,covars,w,pi,init_type='user',verbose=True, min_std=1e-4)
+    gmmhmm = GMHMM(n,m,d,a,means,covars,w,pi,init_type='user',verbose=True, min_std=1e-8)
 
     obs = testvals(0, 400)
 #    obs = np.column_stack([sdiff, ddiff])
@@ -77,12 +78,12 @@ def test_rand():
           success += 1
         total += 1
         print("%d/%d pred=%s actual=%s" % (success,total, nextev, np.array(seq[-1][0])))
-      gmmhmm.train(seq,50, epsilon=1e-20)
+      gmmhmm.train(seq,1, epsilon=1e-2)
       print(gmmhmm.means)
       print(gmmhmm.covars)
       viterbi = gmmhmm.decode(obs[i-40:i])
       print(viterbi)
       nextev = np.array(getEV(gmmhmm.means, gmmhmm.w))
-      gmmhmm = EMAGMHMM(n,m,d,gmmhmm.A,gmmhmm.means,gmmhmm.covars,gmmhmm.w,pi,init_type='user',verbose=True, min_std=1e-4)
+      gmmhmm = GMHMM(n,m,d,gmmhmm.A,gmmhmm.means,gmmhmm.covars,gmmhmm.w,pi,init_type='user',verbose=True, min_std=1e-8)
 
 test_rand()
