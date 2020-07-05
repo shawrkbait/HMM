@@ -99,11 +99,11 @@ class _ContinuousHMM(_BaseHMM):
         '''
         Helper method to compute Bj(Ot) = sum(1...M){Wjm*Bjm(Ot)}
         '''
-        bjt = 0
+        bjt = []
         for m in range(self.m):
-            self.Bmix_map[j][m][t] = self._pdf(Ot, self.means[j][m], self.covars[j][m])
-            bjt += (self.w[j][m]*self.Bmix_map[j][m][t])
-        return bjt
+            self.Bmix_map[j][m][t] = self._logpdf(Ot, self.means[j][m], self.covars[j][m])
+            bjt.append(numpy.log(self.w[j][m]) + self.Bmix_map[j][m][t])
+        return self.logSumExp(bjt)
         
     def _calcgammamix(self,alpha,beta,observations):
         '''
@@ -119,13 +119,13 @@ class _ContinuousHMM(_BaseHMM):
                 for m in range(self.m):
                     alphabeta = 0.0
                     for jj in range(self.n):
-                        alphabeta += alpha[t][jj]*beta[t][jj]
-                    comp1 = (alpha[t][j]*beta[t][j]) / alphabeta
+                        alphabeta += numpy.exp(alpha[t][jj])*beta[t][jj]
+                    comp1 = (numpy.exp(alpha[t][j])*beta[t][j]) / alphabeta
                     
                     bjk_sum = 0.0
                     for k in range(self.m):
-                        bjk_sum += (self.w[j][k]*self.Bmix_map[j][k][t])
-                    comp2 = (self.w[j][m]*self.Bmix_map[j][m][t])/bjk_sum
+                        bjk_sum += self.w[j][k]*numpy.exp(self.Bmix_map[j][k][t])
+                    comp2 = self.w[j][m]*numpy.exp(self.Bmix_map[j][m][t])/bjk_sum
                     
                     gamma_mix[t][j][m] = comp1*comp2
         

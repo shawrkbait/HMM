@@ -46,7 +46,7 @@ class _BaseHMM(object):
             self._mapB(observations)
         
         alpha = self._calcalpha(observations)
-        return numpy.log(sum(alpha[-1]))
+        return self.logSumExp(alpha[-1])
     
     def _calcalpha(self,observations):
         '''
@@ -60,14 +60,16 @@ class _BaseHMM(object):
         
         # init stage - alpha_1(x) = pi(x)b_x(O1)
         for x in range(self.n):
-            alpha[0][x] = self.pi[x]*self.B_map[x][0]
+            alpha[0][x] = numpy.log(self.pi[x]) + self.B_map[x][0]
         
         # induction
         for t in range(1,len(observations)):
             for j in range(self.n):
+                lsum = []
                 for i in range(self.n):
-                    alpha[t][j] += alpha[t-1][i]*self.A[i][j]
-                alpha[t][j] *= self.B_map[j][t]
+                    lsum.append(alpha[t-1][i] + numpy.log(self.A[i][j]))
+                alpha[t][j] = self.logSumExp(lsum)
+                alpha[t][j] += self.B_map[j][t]
                 
         return alpha
 
@@ -89,7 +91,7 @@ class _BaseHMM(object):
         for t in range(len(observations)-2,-1,-1):
             for i in range(self.n):
                 for j in range(self.n):
-                    beta[t][i] += self.A[i][j]*self.B_map[j][t+1]*beta[t+1][j]
+                    beta[t][i] += self.A[i][j]*numpy.exp(self.B_map[j][t+1])*beta[t+1][j]
                     
         return beta
     
@@ -122,7 +124,7 @@ class _BaseHMM(object):
         
         # init
         for x in range(self.n):
-            delta[0][x] = self.pi[x]*self.B_map[x][0]
+            delta[0][x] = self.pi[x]*numpy.exp(self.B_map[x][0])
             psi[0][x] = 0
         
         # induction
@@ -132,7 +134,7 @@ class _BaseHMM(object):
                     if (delta[t][j] < delta[t-1][i]*self.A[i][j]):
                         delta[t][j] = delta[t-1][i]*self.A[i][j]
                         psi[t][j] = i
-                delta[t][j] *= self.B_map[j][t]
+                delta[t][j] *= numpy.exp(self.B_map[j][t])
         
         # termination: find the maximum probability for the entire sequence (=highest prob path)
         p_max = 0 # max value in time T (max)
@@ -145,7 +147,7 @@ class _BaseHMM(object):
         # path backtracing
 #        path = numpy.zeros((len(observations)),dtype=self.precision) ### 2012-11-17 - BUG FIX: wrong reinitialization destroyed the last state in the path
         for i in range(1, len(observations)):
-            path[len(observations)-i-1] = psi[len(observations)-i][ path[len(observations)-i] ]
+            path[len(observations)-i-1] = psi[len(observations)-i][ int( path[len(observations)-i])]
         return path
      
     def _calcxi(self,observations,alpha=None,beta=None):
@@ -167,17 +169,17 @@ class _BaseHMM(object):
             for i in range(self.n):
                 for j in range(self.n):
                     thing = 1.0
-                    thing *= alpha[t][i]
+                    thing *= numpy.exp(alpha[t][i])
                     thing *= self.A[i][j]
-                    thing *= self.B_map[j][t+1]
+                    thing *= numpy.exp(self.B_map[j][t+1])
                     thing *= beta[t+1][j]
                     denom += thing
             for i in range(self.n):
                 for j in range(self.n):
                     numer = 1.0
-                    numer *= alpha[t][i]
+                    numer *= numpy.exp(alpha[t][i])
                     numer *= self.A[i][j]
-                    numer *= self.B_map[j][t+1]
+                    numer *= numpy.exp(self.B_map[j][t+1])
                     numer *= beta[t+1][j]
                     xi[t][i][j] = numer/denom
                     
@@ -228,7 +230,7 @@ class _BaseHMM(object):
         '''
         Replaces the current model parameters with the new ones.
         '''
-        self.pi = new_model['pi']
+        # self.pi = new_model['pi']
         self.A = new_model['A']
                 
     def trainiter(self,observations):
@@ -338,4 +340,9 @@ class _BaseHMM(object):
         increase performance.
         '''
         raise NotImplementedError("a mapping function for B(observable probabilities) must be implemented")
-        
+       
+    def logSumExp(self, ns):
+        max = numpy.max(ns)
+        ds = ns - max
+        sumOfExp = numpy.exp(ds).sum()
+        return max + numpy.log(sumOfExp) 
