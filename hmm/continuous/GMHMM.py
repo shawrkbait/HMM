@@ -29,9 +29,8 @@ class GMHMM(_ContinuousHMM):
         covar_det = numpy.linalg.det(covar);
         
         c = (1 / ( (2.0*numpy.pi)**(float(self.d/2.0)) * (covar_det)**(0.5)))
-        pdfval = c * numpy.exp(-0.5 * numpy.dot( numpy.dot((x-mean),covar.I), (x-mean)) )
+        pdfval = c * self.eexp(-0.5 * numpy.dot( numpy.dot((x-mean),covar.I), (x-mean)) )
         return pdfval
 
     def _logpdf(self, x, mean, covar):
-        var = multivariate_normal(mean=mean, cov=covar)
-        return var.logpdf(x)
+        return self.elog(self._pdf(x, mean, covar))

@@ -9,6 +9,7 @@ This code is based on:
 '''
 
 import numpy
+import numpy as np
 
 class _BaseHMM(object):
     '''
@@ -22,7 +23,8 @@ class _BaseHMM(object):
         self.precision = precision
         self.verbose = verbose
         self._eta = self._eta1
-        
+        self.LOGZERO = -100
+
     def _eta1(self,t,T):
         '''
         Governs how each sample in the time series should be weighed.
@@ -60,14 +62,14 @@ class _BaseHMM(object):
         
         # init stage - alpha_1(x) = pi(x)b_x(O1)
         for x in range(self.n):
-            alpha[0][x] = numpy.log(self.pi[x]) + self.B_map[x][0]
+            alpha[0][x] = self.elog(self.pi[x]) + self.B_map[x][0]
         
         # induction
         for t in range(1,len(observations)):
             for j in range(self.n):
                 lsum = []
                 for i in range(self.n):
-                    lsum.append(alpha[t-1][i] + numpy.log(self.A[i][j]))
+                    lsum.append(alpha[t-1][i] + self.elog(self.A[i][j]))
                 alpha[t][j] = self.logSumExp(lsum)
                 alpha[t][j] += self.B_map[j][t]
                 
@@ -92,7 +94,7 @@ class _BaseHMM(object):
             for i in range(self.n):
                 temp = []
                 for j in range(self.n):
-                    temp.append(numpy.log(self.A[i][j]) + self.B_map[j][t+1] + beta[t+1][j])
+                    temp.append(self.elog(self.A[i][j]) + self.B_map[j][t+1] + beta[t+1][j])
                 beta[t][i] = self.logSumExp(temp)
                     
         return beta
@@ -126,7 +128,7 @@ class _BaseHMM(object):
         
         # init
         for x in range(self.n):
-            delta[0][x] = self.pi[x]*numpy.exp(self.B_map[x][0])
+            delta[0][x] = self.pi[x]*self.eexp(self.B_map[x][0])
             psi[0][x] = 0
         
         # induction
@@ -136,7 +138,7 @@ class _BaseHMM(object):
                     if (delta[t][j] < delta[t-1][i]*self.A[i][j]):
                         delta[t][j] = delta[t-1][i]*self.A[i][j]
                         psi[t][j] = i
-                delta[t][j] *= numpy.exp(self.B_map[j][t])
+                delta[t][j] *= self.eexp(self.B_map[j][t])
         
         # termination: find the maximum probability for the entire sequence (=highest prob path)
         p_max = 0 # max value in time T (max)
@@ -172,7 +174,7 @@ class _BaseHMM(object):
                 for j in range(self.n):
                     thing = 0.0
                     thing += alpha[t][i]
-                    thing += numpy.log(self.A[i][j])
+                    thing += self.elog(self.A[i][j])
                     thing += self.B_map[j][t+1]
                     thing += beta[t+1][j]
                     denom.append(thing)
@@ -181,7 +183,7 @@ class _BaseHMM(object):
                 for j in range(self.n):
                     numer = 0.0
                     numer += alpha[t][i]
-                    numer += numpy.log(self.A[i][j])
+                    numer += self.elog(self.A[i][j])
                     numer += self.B_map[j][t+1] 
                     numer += beta[t+1][j]
                     xi[t][i][j] = numer-denom
@@ -277,7 +279,7 @@ class _BaseHMM(object):
                 numer = self.logSumExp(numer)
                 denom = self.logSumExp(denom)
                 A_new[i][j] = numer - denom
-        return numpy.exp(A_new)
+        return self.eexp(A_new)
     
     def _calcstats(self,observations):
         '''
@@ -349,5 +351,24 @@ class _BaseHMM(object):
     def logSumExp(self, ns):
         max = numpy.max(ns)
         ds = ns - max
-        sumOfExp = numpy.exp(ds).sum()
-        return max + numpy.log(sumOfExp) 
+        sumOfExp = self.eexp(ds).sum()
+        return max + self.elog(sumOfExp)
+
+    def eexp(self, ns):
+        arr = np.array(ns)
+        for idx, x in np.ndenumerate(arr):
+          if arr[idx] <= self.LOGZERO:
+            arr[idx] = 0
+          else:
+            arr[idx] = numpy.exp(arr[idx])
+        return arr
+    
+    def elog(self, ns):
+        arr = np.array(ns)
+        for idx, x in np.ndenumerate(arr):
+          if arr[idx] == 0:
+            arr[idx] = self.LOGZERO
+          else:
+            arr[idx] = numpy.log(arr[idx])
+        return arr
+
