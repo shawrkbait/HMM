@@ -85,13 +85,15 @@ class _BaseHMM(object):
         
         # init stage
         for s in range(self.n):
-            beta[len(observations)-1][s] = 1.
+            beta[len(observations)-1][s] = 0.
         
         # induction
         for t in range(len(observations)-2,-1,-1):
             for i in range(self.n):
+                temp = []
                 for j in range(self.n):
-                    beta[t][i] += self.A[i][j]*numpy.exp(self.B_map[j][t+1])*beta[t+1][j]
+                    temp.append(numpy.log(self.A[i][j]) + self.B_map[j][t+1] + beta[t+1][j])
+                beta[t][i] = self.logSumExp(temp)
                     
         return beta
     
@@ -165,23 +167,24 @@ class _BaseHMM(object):
         xi = numpy.zeros((len(observations),self.n,self.n),dtype=self.precision)
         
         for t in range(len(observations)-1):
-            denom = 0.0
+            denom = []
             for i in range(self.n):
                 for j in range(self.n):
-                    thing = 1.0
-                    thing *= numpy.exp(alpha[t][i])
-                    thing *= self.A[i][j]
-                    thing *= numpy.exp(self.B_map[j][t+1])
-                    thing *= beta[t+1][j]
-                    denom += thing
+                    thing = 0.0
+                    thing += alpha[t][i]
+                    thing += numpy.log(self.A[i][j])
+                    thing += self.B_map[j][t+1]
+                    thing += beta[t+1][j]
+                    denom.append(thing)
+            denom = self.logSumExp(denom)
             for i in range(self.n):
                 for j in range(self.n):
-                    numer = 1.0
-                    numer *= numpy.exp(alpha[t][i])
-                    numer *= self.A[i][j]
-                    numer *= numpy.exp(self.B_map[j][t+1])
-                    numer *= beta[t+1][j]
-                    xi[t][i][j] = numer/denom
+                    numer = 0.0
+                    numer += alpha[t][i]
+                    numer += numpy.log(self.A[i][j])
+                    numer += self.B_map[j][t+1] 
+                    numer += beta[t+1][j]
+                    xi[t][i][j] = numer-denom
                     
         return xi
 
@@ -196,7 +199,7 @@ class _BaseHMM(object):
         
         for t in range(seqlen):
             for i in range(self.n):
-                gamma[t][i] = sum(xi[t][i])
+                gamma[t][i] = self.logSumExp(xi[t][i])
         
         return gamma
     
@@ -266,13 +269,15 @@ class _BaseHMM(object):
         A_new = numpy.zeros((self.n,self.n),dtype=self.precision)
         for i in range(self.n):
             for j in range(self.n):
-                numer = 0.0
-                denom = 0.0
+                numer = []
+                denom = []
                 for t in range(len(observations)-1):
-                    numer += (self._eta(t,len(observations)-1)*xi[t][i][j])
-                    denom += (self._eta(t,len(observations)-1)*gamma[t][i])
-                A_new[i][j] = numer/denom
-        return A_new
+                    numer.append(self._eta(t,len(observations)-1)*xi[t][i][j])
+                    denom.append(self._eta(t,len(observations)-1)*gamma[t][i])
+                numer = self.logSumExp(numer)
+                denom = self.logSumExp(denom)
+                A_new[i][j] = numer - denom
+        return numpy.exp(A_new)
     
     def _calcstats(self,observations):
         '''

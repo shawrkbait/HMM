@@ -119,8 +119,8 @@ class _ContinuousHMM(_BaseHMM):
                 for m in range(self.m):
                     alphabeta = 0.0
                     for jj in range(self.n):
-                        alphabeta += numpy.exp(alpha[t][jj])*beta[t][jj]
-                    comp1 = (numpy.exp(alpha[t][j])*beta[t][j]) / alphabeta
+                        alphabeta += numpy.exp(alpha[t][jj] + beta[t][jj])
+                    comp1 = (numpy.exp(alpha[t][j] + beta[t][j])) / alphabeta
                     
                     bjk_sum = 0.0
                     for k in range(self.m):
