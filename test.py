@@ -67,7 +67,7 @@ def test_rand():
     obs = testvals(0, 400)
 #    obs = np.column_stack([sdiff, ddiff])
 
-    print(obs)
+#    print(obs)
     success = 0
     total = 0
     print("Doing Baum-welch")
