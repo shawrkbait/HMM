@@ -221,13 +221,15 @@ class _BaseHMM(object):
         '''        
         self._mapB(observations)
         
+        prev = 1000
         for i in range(iterations):
             prob_old, prob_new = self.trainiter(observations)
 
             if (self.verbose):      
-                print("iter: ", i, ", L(model|O) =", prob_old, ", L(model_new|O) =", prob_new, ", converging =", ( prob_new-prob_old > thres ))
+                print("iter: ", i, ", L(model|O) =", prob_old, ", L(model_new|O) =", prob_new, ", converging = %r %f" % ( abs(prob_new-prob_old) < prev, abs(prob_new-prob_old)))
                 
-            if ( abs(prob_new-prob_old) < epsilon ):
+            prev = abs(prob_new-prob_old)
+            if ( prev < epsilon ):
                 # converged
                 break
                 

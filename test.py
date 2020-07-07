@@ -58,14 +58,14 @@ def test_rand():
     for i in range(n):
         for j in range(m):
             for k in range(d):
-                covars[i][j][k][k] = 1
+                covars[i][j][k][k] = modifier
     pitmp = np.random.random_sample((n))
     pi = np.array(pitmp / sum(pitmp), dtype=np.double)
 
     gmmhmm = GMHMM(n,m,d,a,means,covars,w,pi,init_type='user',verbose=True, min_std=1e-8)
 
-    obs = testvals(0, 400)
-#    obs = np.column_stack([sdiff, ddiff])
+#    obs = testvals(0, 400)
+    obs = np.column_stack([sdiff, ddiff])
 
 #    print(obs)
     success = 0
@@ -81,7 +81,7 @@ def test_rand():
           success += 1
         total += 1
         print("%d/%d pred=%s actual=%s" % (success,total, nextev, np.array(seq[-1][0])))
-      gmmhmm.train(seq,50, epsilon=1e-2)
+      gmmhmm.train(seq,50, epsilon=1)
       print(gmmhmm.means)
       print(gmmhmm.covars)
       viterbi = gmmhmm.decode(obs[i-40:i])

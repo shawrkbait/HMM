@@ -121,16 +121,15 @@ class _ContinuousHMM(_BaseHMM):
                     for jj in range(self.n):
                         alphabeta.append(self.elogprod(alpha[t][jj],beta[t][jj]))
                     alphabeta = self.logSumExp(alphabeta)
-                    comp1 = self.elogprod(alpha[t][j], self.elogprod(beta[t][j], -alphabeta))
+                    comp1 = self.elogprod(alpha[t][j], self.elogprod(beta[t][j], - alphabeta))
                     
                     bjk_sum = []
                     for k in range(self.m):
                         bjk_sum.append(self.elogprod(self.w[j][k],self.Bmix_map[j][k][t]))
                     bjk_sum = self.logSumExp(bjk_sum)
-                    comp2 = self.elogprod(self.w[j][m],
-                        self.elogprod(self.Bmix_map[j][m][t], -bjk_sum))
+                    comp2 = self.elogprod(self.w[j][m], self.elogprod(self.Bmix_map[j][m][t], - bjk_sum))
                     
-                    gamma_mix[t][j][m] = self.elogprod(comp1,comp2)
+                    gamma_mix[t][j][m] = self.elogprod(comp1, comp2)
         
         return gamma_mix
     
@@ -200,8 +199,8 @@ class _ContinuousHMM(_BaseHMM):
                 numer = numpy.zeros( (self.d), dtype=self.precision)
                 denom = numpy.zeros( (self.d), dtype=self.precision)
                 for t in range(len(observations)):
-                    numer += self.eexp(self.elog(self._eta(t,len(observations)-1)) + gamma_mix[t][j][m])*observations[t]
-                    denom += self.eexp(self.elog(self._eta(t,len(observations)-1)) + gamma_mix[t][j][m])
+                    numer += self.eexp(self.elogprod(self.elog(self._eta(t,len(observations)-1)),gamma_mix[t][j][m]))*observations[t]
+                    denom += self.eexp(self.elogprod(self.elog(self._eta(t,len(observations)-1)),gamma_mix[t][j][m]))
                 means_new[j][m] = numer/denom
                 
         cov_prior = [[ numpy.matrix(self.min_std*numpy.eye((self.d), dtype=self.precision)) for j in range(self.m)] for i in range(self.n)]
@@ -211,8 +210,8 @@ class _ContinuousHMM(_BaseHMM):
                 denom = numpy.matrix(numpy.zeros( (self.d,self.d), dtype=self.precision))
                 for t in range(len(observations)):
                     vector_as_mat = numpy.matrix( (observations[t]-self.means[j][m]), dtype=self.precision )
-                    numer += self.eexp(self.elog(self._eta(t,len(observations)-1)) + gamma_mix[t][j][m])*numpy.dot( vector_as_mat.T, vector_as_mat)
-                    denom += self.eexp(self.elog(self._eta(t,len(observations)-1)) + gamma_mix[t][j][m])
+                    numer += self.eexp(self.elogprod(self.elog(self._eta(t,len(observations)-1)),gamma_mix[t][j][m]))*numpy.dot( vector_as_mat.T, vector_as_mat)
+                    denom += self.eexp(self.elogprod(self.elog(self._eta(t,len(observations)-1)),gamma_mix[t][j][m]))
                 covars_new[j][m] = numer/denom
                 covars_new[j][m] = covars_new[j][m] + cov_prior[j][m]               
         
