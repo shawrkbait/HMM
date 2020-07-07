@@ -23,7 +23,7 @@ class _BaseHMM(object):
         self.precision = precision
         self.verbose = verbose
         self._eta = self._eta1
-        self.LOGZERO = -100
+        self.LOGZERO = -300
 
     def _eta1(self,t,T):
         '''
@@ -62,16 +62,16 @@ class _BaseHMM(object):
         
         # init stage - alpha_1(x) = pi(x)b_x(O1)
         for x in range(self.n):
-            alpha[0][x] = self.elog(self.pi[x]) + self.B_map[x][0]
+            alpha[0][x] = self.elogprod(self.elog(self.pi[x]),self.B_map[x][0])
         
         # induction
         for t in range(1,len(observations)):
             for j in range(self.n):
                 lsum = []
                 for i in range(self.n):
-                    lsum.append(alpha[t-1][i] + self.elog(self.A[i][j]))
+                    lsum.append(self.elogprod(alpha[t-1][i],self.elog(self.A[i][j])))
                 alpha[t][j] = self.logSumExp(lsum)
-                alpha[t][j] += self.B_map[j][t]
+                alpha[t][j] = self.elogprod(alpha[t][j], self.B_map[j][t])
                 
         return alpha
 
@@ -94,7 +94,8 @@ class _BaseHMM(object):
             for i in range(self.n):
                 temp = []
                 for j in range(self.n):
-                    temp.append(self.elog(self.A[i][j]) + self.B_map[j][t+1] + beta[t+1][j])
+                    temp.append(self.elogprod(self.elog(self.A[i][j]),
+                      self.elogprod(self.B_map[j][t+1],beta[t+1][j])))
                 beta[t][i] = self.logSumExp(temp)
                     
         return beta
@@ -128,17 +129,18 @@ class _BaseHMM(object):
         
         # init
         for x in range(self.n):
-            delta[0][x] = self.pi[x]*self.eexp(self.B_map[x][0])
+            delta[0][x] = self.elogprod(self.elog(self.pi[x]), self.B_map[x][0])
             psi[0][x] = 0
         
         # induction
         for t in range(1,len(observations)):
             for j in range(self.n):
                 for i in range(self.n):
-                    if (delta[t][j] < delta[t-1][i]*self.A[i][j]):
-                        delta[t][j] = delta[t-1][i]*self.A[i][j]
+                    tmp = self.elogprod(delta[t-1][i], self.elog(self.A[i][j]))
+                    if (delta[t][j] < tmp):
+                        delta[t][j] = tmp
                         psi[t][j] = i
-                delta[t][j] *= self.eexp(self.B_map[j][t])
+                delta[t][j] = self.elogprod(delta[t][j], self.B_map[j][t])
         
         # termination: find the maximum probability for the entire sequence (=highest prob path)
         p_max = 0 # max value in time T (max)
@@ -172,20 +174,18 @@ class _BaseHMM(object):
             denom = []
             for i in range(self.n):
                 for j in range(self.n):
-                    thing = 0.0
-                    thing += alpha[t][i]
-                    thing += self.elog(self.A[i][j])
-                    thing += self.B_map[j][t+1]
-                    thing += beta[t+1][j]
+                    thing = self.elogprod(alpha[t][i],
+                        self.elogprod(self.elog(self.A[i][j]),
+                        self.elogprod(self.B_map[j][t+1],
+                        beta[t+1][j])))
                     denom.append(thing)
             denom = self.logSumExp(denom)
             for i in range(self.n):
                 for j in range(self.n):
-                    numer = 0.0
-                    numer += alpha[t][i]
-                    numer += self.elog(self.A[i][j])
-                    numer += self.B_map[j][t+1] 
-                    numer += beta[t+1][j]
+                    numer = self.elogprod(alpha[t][i],
+                        self.elogprod(self.elog(self.A[i][j]),
+                        self.elogprod(self.B_map[j][t+1],
+                        beta[t+1][j])))
                     xi[t][i][j] = numer-denom
                     
         return xi
@@ -372,3 +372,21 @@ class _BaseHMM(object):
             arr[idx] = numpy.log(arr[idx])
         return arr
 
+    def elogsum(self, a, b):
+      if a == self.LOGZERO:
+        return b
+      elif b == self.LOGZERO:
+        return a
+      else:
+        if a > b:
+          return x + self.elog(1 + numpy.exp(b-a))
+        else:
+          return y + self.elog(1 + numpy.exp(a-b))
+
+    def elogprod(self, a, b):
+      if a == self.LOGZERO:
+        return self.LOGZERO
+      elif b == self.LOGZERO:
+        return self.LOGZERO
+      else:
+        return a + b

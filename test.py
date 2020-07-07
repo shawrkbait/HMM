@@ -28,8 +28,9 @@ def testvals(start, end):
     oldval = x
   return np.column_stack([a,b])
 
-def getEV(mu, R):
+def getEV(mu, Rlog):
   print("State EVs")
+  R = np.exp(Rlog)
   evs = []
   for m in range(len(mu)):
     ev = 0
@@ -49,6 +50,7 @@ def test_rand():
     wtmp = np.random.random_sample((n, m))
     row_sums = wtmp.sum(axis=1)
     w = np.array(wtmp / row_sums[:, np.newaxis], dtype=np.double)
+    w = np.log(w)
 
     means = np.array((modifier * 0.6 * np.random.random_sample((n, m, d)) - modifier * 0.3), dtype=np.double)
     covars = np.zeros( (n,m,d,d) )
@@ -65,10 +67,11 @@ def test_rand():
     obs = testvals(0, 400)
 #    obs = np.column_stack([sdiff, ddiff])
 
+    print(obs)
     success = 0
     total = 0
     print("Doing Baum-welch")
-    for i in range(40,400):
+    for i in range(40,140):
       seq = obs[i-40:i]
       print("Doing ", i-40)
       if i > 40:
@@ -78,7 +81,7 @@ def test_rand():
           success += 1
         total += 1
         print("%d/%d pred=%s actual=%s" % (success,total, nextev, np.array(seq[-1][0])))
-      gmmhmm.train(seq,20, epsilon=1e-2)
+      gmmhmm.train(seq,50, epsilon=1e-2)
       print(gmmhmm.means)
       print(gmmhmm.covars)
       viterbi = gmmhmm.decode(obs[i-40:i])

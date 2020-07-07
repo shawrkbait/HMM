@@ -102,7 +102,7 @@ class _ContinuousHMM(_BaseHMM):
         bjt = []
         for m in range(self.m):
             self.Bmix_map[j][m][t] = self._logpdf(Ot, self.means[j][m], self.covars[j][m])
-            bjt.append(numpy.log(self.w[j][m]) + self.Bmix_map[j][m][t])
+            bjt.append(self.elogprod(self.w[j][m],self.Bmix_map[j][m][t]))
         return self.logSumExp(bjt)
         
     def _calcgammamix(self,alpha,beta,observations):
@@ -119,17 +119,18 @@ class _ContinuousHMM(_BaseHMM):
                 for m in range(self.m):
                     alphabeta = []
                     for jj in range(self.n):
-                        alphabeta.append(alpha[t][jj] + beta[t][jj])
+                        alphabeta.append(self.elogprod(alpha[t][jj],beta[t][jj]))
                     alphabeta = self.logSumExp(alphabeta)
-                    comp1 = alpha[t][j] + beta[t][j] - alphabeta
+                    comp1 = self.elogprod(alpha[t][j], self.elogprod(beta[t][j], -alphabeta))
                     
                     bjk_sum = []
                     for k in range(self.m):
-                        bjk_sum.append(self.elog(self.w[j][k]) + self.Bmix_map[j][k][t])
+                        bjk_sum.append(self.elogprod(self.w[j][k],self.Bmix_map[j][k][t]))
                     bjk_sum = self.logSumExp(bjk_sum)
-                    comp2 = self.elog(self.w[j][m]) + self.Bmix_map[j][m][t] - bjk_sum
+                    comp2 = self.elogprod(self.w[j][m],
+                        self.elogprod(self.Bmix_map[j][m][t], -bjk_sum))
                     
-                    gamma_mix[t][j][m] = comp1+comp2
+                    gamma_mix[t][j][m] = self.elogprod(comp1,comp2)
         
         return gamma_mix
     
@@ -183,14 +184,16 @@ class _ContinuousHMM(_BaseHMM):
         
         for j in range(self.n):
             for m in range(self.m):
-                numer = 0.0
-                denom = 0.0                
+                numer = []
+                denom = []               
                 for t in range(len(observations)):
                     for k in range(self.m):
-                        denom += (self._eta(t,len(observations)-1)*self.eexp(gamma_mix[t][j][k]))
-                    numer += (self._eta(t,len(observations)-1)*self.eexp(gamma_mix[t][j][m]))
-                w_new[j][m] = numer/denom
-            w_new[j] = self._normalize(w_new[j])
+                        denom.append(self.elogprod(self.elog(self._eta(t,len(observations)-1)), gamma_mix[t][j][k]))
+                    numer.append(self.elogprod(self.elog(self._eta(t,len(observations)-1)), gamma_mix[t][j][m]))
+                numer = self.logSumExp(numer)
+                denom = self.logSumExp(denom)
+                w_new[j][m] = self.elogprod(numer, -denom)
+            w_new[j] = self._normalize_log(w_new[j])
                 
         for j in range(self.n):
             for m in range(self.m):
@@ -224,7 +227,13 @@ class _ContinuousHMM(_BaseHMM):
         for i in range(len(arr)):
             arr[i] = (arr[i]/summ)
         return arr
-    
+   
+    def _normalize_log(self, arr):
+        summ = self.logSumExp(arr)
+        for i in range(len(arr)):
+            arr[i] = (arr[i] - summ)
+        return arr
+
     def _pdf(self,x,mean,covar):
         '''
         Deriving classes should implement this method. This is the specific
