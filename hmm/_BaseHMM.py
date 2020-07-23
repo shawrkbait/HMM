@@ -228,7 +228,7 @@ class _BaseHMM(object):
         '''
         Replaces the current model parameters with the new ones.
         '''
-        self.pi = new_model['pi']
+        #self.pi = new_model['pi']
         self.A = new_model['A']
                 
     def trainiter(self,observations):
